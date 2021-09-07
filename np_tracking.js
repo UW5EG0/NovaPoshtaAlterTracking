@@ -45,16 +45,33 @@ url.searchParams.delete('phone');
 window.history.replaceState(null, null, url); 
 }
 
- var copyLink = function() {
+var copyLink = function(target) {
 	let text = document.getElementById("copyButton").value;
+    
 	navigator.clipboard.writeText(new URL(window.location.href)).then(function() {
     /* clipboard successfully set */
-	document.getElementById("copyButton").value = "Скопировано!";
-	setTimeout(() => {document.getElementById("copyButton").value = text;}, 1000);
+	let copyButtons = document.getElementsByClassName("copyButton");
+	 for(var i=0; i<copyButtons.length; i++)
+                {
+				copyButtons[i].value = "Скопировано!";
+        		}
+    setTimeout(() => {	let copyButtons = document.getElementsByClassName("copyButton");
+	 for(var i=0; i<copyButtons.length; i++)
+                {
+				copyButtons[i].value = text;
+        		}}, 1000);
   }, function() {
     /* clipboard write failed */
-	document.getElementById("copyButton").value = "Ошибка копирования :(";
-	setTimeout(() => {document.getElementById("copyButton").value = text;}, 1000);
+	let copyButtons = document.getElementsByClassName("copyButton");
+	 for(var i=0; i<copyButtons.length; i++)
+                {
+				copyButtons[i].value = "Ошибка копирования :(";
+        		}
+    setTimeout(() => {	let copyButtons = document.getElementsByClassName("copyButton");
+	 for(var i=0; i<copyButtons.length; i++)
+                {
+				copyButtons[i].value = text;
+        		}}, 1000);
   });
 
 }
@@ -72,20 +89,36 @@ var typeNumber = function (label,dimension,variable){
 	}
 return line;
 }
-var typeLink = function(label,variable,id,alt){
+var typePhoneLink = function(label,variable,id,alt){
 	let line = "";
 	if (testText(variable)) {
 		line = "<div>"+label+": <a href=\"javascript:void(0);\" class=\"phoneNumber\" title=\""+alt+"\" id=\""+id+"\">"+variable+"</a></div>";
 	}
 return line;
 }
+
+var typeEWLink = function(variable){
+	let line = "";
+	if (testText(variable)) {
+		line = "<a href=\"javascript:void(0);\" class=\"EW\" title=\""+variable+"\" style=\"color: #7bf; text-decoration: underline;\" id=\"EW_"+variable+"\">"+variable+"</a>";
+	}
+return line;
+}
+
+
+
+var updateTrackingList = function (newEW) {
+	document.getElementById("tracking").value = parseTrackingNumber(newEW + ", " +document.getElementById("tracking").value).toString();
+	handleClick();
+};
+
 var handleClick = function() {
 	resetAnswer();
 	setStatus("secondary","Проверяю...");
 	let trackingList = parseTrackingNumber(document.getElementById("tracking").value);
 	let phoneNumber = parsePhoneNumber(document.getElementById("phone").value);
 	let apiKey = document.getElementById("apiKey").value;
-	
+	document.getElementById("tracking").value = trackingList.toString();
 //Записываем параметры к запросу для автостарта при копипасте ссылки 	
 const url = new URL(window.location.href);
 if (trackingList.length >0) url.searchParams.set('tracking', trackingList.toString());
@@ -105,6 +138,8 @@ window.history.replaceState(null, null, url);
 	});
 postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
   .then((data) => {
+	if (typeof debug !== 'undefined') {  
+	console.log(data);}
 	// Отчитываемся о успешном соединении с НП
 	var block = "";
 	setStatus((data.success)?"success":"alert","Запрос "+((data.success)?"":"не ")+"удачен!");
@@ -119,12 +154,12 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 	//Выводим цепочку ТТН-ок
 	block += "<div class=\"small-12 large-12\"><span style=\"font-size: x-large;\">ТТН: </span>";
 	if (testText(trackingItem.OwnerDocumentNumber)) 
-	{block +="<span style=\"font-size: x-large; color: #bbb\">"+trackingItem.OwnerDocumentNumber+" -> </span>";}
-	block +="<span style=\"font-size: x-large;\">";
-	if (testText(trackingItem.OwnerDocumentNumber)) { block +=parseDocumentType(trackingItem.OwnerDocumentType)+" "; }
-	block += trackingItem.Number+"</span>";
+	{
+		block +="<span style=\"font-size: x-large; color: #bbb\">"+typeEWLink(trackingItem.OwnerDocumentNumber)+" -> </span>";
+		}
+	block +="<span style=\"font-size: x-large;\">"+parseDocumentType(trackingItem.OwnerDocumentType)+" <strong>"+trackingItem.Number+"</strong></span>";
 	if (testText(trackingItem.LastCreatedOnTheBasisNumber)) 
-	{ block +="<span style=\"font-size: x-large; color: #bbb\"> -> "+parseDocumentType(trackingItem.LastCreatedOnTheBasisDocumentType)+" "+trackingItem.LastCreatedOnTheBasisNumber+" </span>";
+	{ block +="<span style=\"font-size: x-large; color: #bbb\"> -> "+parseDocumentType(trackingItem.LastCreatedOnTheBasisDocumentType)+" "+typeEWLink(trackingItem.LastCreatedOnTheBasisNumber)+" </span>";
 	}
     //выводим тип движения
 	if (testText(trackingItem.ServiceType)) {
@@ -137,15 +172,26 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 			  	<span style=\"font-size: x-large;\">"+parseTrackingStatus(trackingItem)+"</span>\
 			  </div><hr>";
 	if (trackingItem.StatusCode != TRACKING_NUMBER_NOT_FOUND) { //"Номер не знайдено"
-	if (trackingItem.UndeliveryReasonsDate != "") {
+	if (testText(trackingItem.UndeliveryReasonsDate) || testText(trackingItem.UndeliveryReasonsSubtypeDescription) ) {
 		
-	block += "<div style=\"font-size: x-large;\" data-alert class=\"alert-box alert radius\">Недоставлен: "+trackingItem.UndeliveryReasonsSubtypeDescription+"</br>\
-	Когда:</span> <span style=\"font-size: x-large;\">"+trackingItem.UndeliveryReasonsDate+"</div>";
+	block += "<div style=\"font-size: x-large;\" data-alert class=\"alert-box alert radius\">";
+	if (testText(trackingItem.UndeliveryReasonsDate)){
+	block += "Недоставлен: "+trackingItem.UndeliveryReasonsSubtypeDescription;
+	if (testText(trackingItem.UndeliveryReasonsDate)){
+	block += "</br>";
+	}
+	}
+	if (testText(trackingItem.UndeliveryReasonsDate)){
+	block += "Когда:</span> <span style=\"font-size: x-large;\">"+trackingItem.UndeliveryReasonsDate;
+	}
+	
+	block +=  "</div>";
 	}
 	
 	block += "<div class=\"row\"><div class=\"small-12 large-4 columns\">\
 			  <h5>Общая информация:</h5>"
-	+ typeLine("Дата создания:",trackingItem.DateCreated)
+	+ typeLine("Наличие обратной доставки",(trackingItem.Redelivery == 1)?"Да":"Нет")
+	+ typeLine("Дата создания",trackingItem.DateCreated)
 	+ typeLine("Создана ведомая ТТН",trackingItem.LastCreatedOnTheBasisDateTime)
 	+ typeLine("Предполагаемая доставка",trackingItem.ScheduledDeliveryDate)
 	+ typeLine("Начало платного хранения с",trackingItem.DatePayedKeeping)
@@ -154,11 +200,14 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 
 	block += "<div class=\"small-12 large-4 columns\">\
 			  <h5>Информация о грузе:</h5>"
+			  
 	+ typeLine("Тип груза",parseCargoType(trackingItem.CargoType)) 
 	+ typeLine("Описание груза",trackingItem.CargoDescriptionString) 
 	+ typeNumber("Вес груза","кг",trackingItem.DocumentWeight) 
 	+ typeNumber("Фактический вес груза","кг",trackingItem.FactualWeight) 
+	+ typeNumber("Контрольное взвешивание","кг",trackingItem.CheckWeight) 
 	+ typeNumber("Объёмный вес груза","кг",trackingItem.VolumeWeight) 
+	+ typeLine("Тип контрольного взвешивания", (trackingItem.CheckWeightMethod == "Volumetric")?"Объёмный":trackingItem.CheckWeightMethod)
 	+ typeLine("Дополнительная информация",trackingItem.AdditionalInformationEW) + "</div>";
 	
 	block += "<div class=\"small-12 large-4 columns\"><h5>Финансовые данные:</h5>"; //style=\"grid-column: 10/ -1;
@@ -185,7 +234,12 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 	block +="</div>"; //#div - Кто платит
 	block += typeNumber("Стоимость доставки","грн",trackingItem.DocumentCost)
 		  +	typeNumber("Стоимость хранения на НП","грн",trackingItem.StorageAmount)
+		  +	typeNumber("Стоимость до контрольного веса","грн",trackingItem.SumBeforeCheckWeight)
 	+	typeNumber("Контроль оплаты","грн",trackingItem.AfterpaymentOnGoodsCost)
+	+	typeNumber("Сумма обратной доставки","грн",trackingItem.RedeliverySum)
+	+	typeNumber("Стоимость услуг обратной доставки","грн",trackingItem.RedeliveryServiceCost)
+	+	typeNumber("Сумма денежного перевода","грн",trackingItem.LastAmountTransferGM)
+	+	typeNumber("Комиссия за денежный перевод","грн",trackingItem.LastAmountReceivedCommissionGM)
 	+	typeNumber("Оплачено (интернет заказ)","грн",trackingItem.AmountPaid)
 	+	typeNumber("К оплате (интернет заказ)","грн",trackingItem.AmountToPay) + "</div></div>"; //#row
 	
@@ -195,7 +249,7 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 	+ typeLine("Город-отправитель",trackingItem.CitySender) 
 	+ typeLine("Тип отправителя",parseCounterpartyType(trackingItem.CounterpartySenderType)) 
 	+ typeLine("ФИО ЭН",trackingItem.SenderFullNameEW) 
-	+ typeLink("Номер",trackingItem.PhoneSender,"search_"+trackingItem.PhoneSender, "Нажмите, чтоб отобразить данные доступные с этим номером") 
+	+ typePhoneLink("Номер",trackingItem.PhoneSender,"search_"+trackingItem.PhoneSender, "Нажмите, чтоб отобразить данные доступные с этим номером") 
 	+ typeLine("Склад",trackingItem.WarehouseSender) 
 	+ typeLine("Адрес доставки",trackingItem.WarehouseSenderAddress)+"</div>";
 	
@@ -205,7 +259,7 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 	+ typeLine("Тип получателя",parseCounterpartyType(trackingItem.CounterpartyType)) 
 	+ typeLine("ФИО ЭН",trackingItem.RecipientFullNameEW) 
 	+ typeLine("ФИО получателя",trackingItem.RecipientFullName) 
-	+ typeLink("Номер",trackingItem.PhoneRecipient,"search_"+trackingItem.PhoneRecipient, "Нажмите, чтоб отобразить данные доступные с этим номером") 
+	+ typePhoneLink("Номер",trackingItem.PhoneRecipient,"search_"+trackingItem.PhoneRecipient, "Нажмите, чтоб отобразить данные доступные с этим номером") 
 	+ typeLine("Склад",trackingItem.WarehouseRecipient) 
 	+ typeLine("Адрес доставки",trackingItem.WarehouseRecipientAddress)+"</div></div>";
 	
@@ -219,13 +273,25 @@ postData('https://api.novaposhta.ua/v2.0/json/', jsonData)
 	block+="</div>";	
 	document.getElementById("answer").innerHTML += block;	
 	});
-	document.getElementById("answer").innerHTML +="<div><input class=\"button prefix\" id=\"copyButton\" style=\"background-color:#3AA\" onclick=\"javascript:copyLink()\" type=\"button\" value=\"Cкопировать ссылку на отчет\" /></div>";
+	document.getElementById("answer").innerHTML +="<div><input class=\"button prefix copyButton\" id=\"copyButton2\" style=\"background-color:#3AA\" type=\"button\" value=\"Cкопировать ссылку на отчет\" /></div>";
+		var copyButtons = document.getElementsByClassName("copyButton");
+	 for(var i=0; i<copyButtons.length; i++)
+                {
+			copyButtons[i].addEventListener("click", (event) => {copyLink(event.target);});
+                }
 	//Всё выведено;
 	var phoneLinks = document.getElementsByClassName("phoneNumber");
 	 for(var i=0; i<phoneLinks.length; i++)
                 {
 			phoneLinks[i].addEventListener("click", (event) => {searchWithThisPhoneNumber(event.target.innerHTML);});
                 }
+	var EWLinks = document.getElementsByClassName("EW");
+	 for(var i=0; i<EWLinks.length; i++)
+                {
+			EWLinks[i].addEventListener("click", (event) => {updateTrackingList(event.target.innerHTML);});
+                }
+				
+				
   	};
   });
 };
@@ -257,10 +323,10 @@ form += "<div class=\"row\">\
           <a class=\"button prefix\" href=\"#\" id=\"searchButton\">Отследить <i class=\"fa fa-search\"></i></a>\
         </div>\
 		<div class=\"small-6 large-2 columns\">\
-          <input class=\"button prefix\" id=\"clearButton\" style=\"background-color:#F55\" onclick=\"javascript:clearData()\" type=\"button\" value=\"Очистить\" />\
+          <input class=\"button prefix\" id=\"clearButton\" style=\"background-color:#F55\" type=\"button\" value=\"Очистить\" />\
         </div>\
 		<div class=\"small-6 large-3 columns\">\
-          <input class=\"button prefix\" id=\"copyButton\" style=\"background-color:#3AA\" onclick=\"javascript:copyLink()\" type=\"button\" value=\"Cкопировать ссылку на отчет\" />\
+          <input class=\"button prefix copyButton\" id=\"copyButton\" style=\"background-color:#3AA\" type=\"button\" value=\"Cкопировать ссылку на отчет\" />\
         </div>\
 		</div>"; //Создаём строку с кнопками
 form +="</form><div id=\"answer\"></div>";
@@ -270,6 +336,7 @@ setSubmitOnComponentEnter("tracking",handleClick);
 setSubmitOnComponentEnter("phone",handleClick);
 setSubmitOnComponentEnter("apiKey",handleClick); 
 setSubmitOnComponentClick("searchButton", handleClick);
+setSubmitOnComponentClick("clearButton", clearData);
 
 
 //Считываем параметры и заносим в поля
@@ -363,11 +430,16 @@ var parseDocumentType = function (input){
 	switch (input){
 		case "CargoReturn":
 		 return "Возврат";
-		 break;
+		break;
 		case "Redirecting":
-		 return "Переадресация";
-		 break;
-		 
+	 	 return "Переадресация";
+	    break;
+		case "RedeliveryGM":
+		 return "Денежный перевод (наличные)";
+		break;
+		case undefined:
+		 return "Неклассифицируемый";
+		break; 
 		default: return input;
 	}
 	
@@ -455,7 +527,7 @@ var parseTrackingStatus = function (input)
 var parseTrackingNumber = function (inputString) {
 	let Arr = [];
 	let itemNumber = "";
-	inputString.replace(/\D/g, " ").split(' ').filter(String).forEach((element, index, currentArr) => {
+	inputString.replace(/[^0-9\-]/g, " ").split(' ').filter(String).forEach((element, index, currentArr) => {
 	itemNumber += element;
 	if ((itemNumber.startsWith("2") | itemNumber.startsWith("5")) & itemNumber.length >= 14 | (itemNumber.startsWith("1") & itemNumber.length >= 8)) {
 		Arr.push(itemNumber);
@@ -465,7 +537,21 @@ var parseTrackingNumber = function (inputString) {
 	if (Arr.indexOf(itemNumber) == -1 && itemNumber.length >0) { //add EW with wrong number if it`s last in sequence
 		Arr.push(itemNumber);
 	}
-	return Arr;
+	
+	return remove_duplicates_safe(Arr);
+}
+
+var remove_duplicates_safe = function (arr) {
+    var seen = {};
+    var ret_arr = [];
+    for (var i = 0; i < arr.length; i++) {
+        if (!(arr[i] in seen)) {
+            ret_arr.push(arr[i]);
+            seen[arr[i]] = true;
+        }
+    }
+    return ret_arr;
+
 }
 
 var parsePhoneNumber = function(inputString) {
